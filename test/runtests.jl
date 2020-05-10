@@ -1,6 +1,3 @@
-using Whirl
-using Test
+using Whirl: runtests
 
-@testset "Whirl.jl" begin
-    # Write your own tests here.
-end
+runtests()
