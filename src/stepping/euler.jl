@@ -1,12 +1,13 @@
 export EulerStepper
 
-mutable struct EulerStepper{N,EOS,K,MD,M,ED,E,D} <: Stepper{N}
+mutable struct EulerStepper{N,EOS,K,MD,M,ED,E,D,B} <: Stepper{N}
     eos::EOS
     positions::Vector{SVectorF{N}}
     velocities::Velocities{N}
     mass_component::M
     energy_component::E
     diffusion_component::D
+    boundary_component::B
     pressures::Pressures
     time_derivatives::TimeDerivatives{N,MD,ED}
 
@@ -16,6 +17,7 @@ mutable struct EulerStepper{N,EOS,K,MD,M,ED,E,D} <: Stepper{N}
         mass_component::M,
         energy_component::E,
         diffusion_component::D,
+        boundary_component::B,
         eos::EOS,
     ) where {
         N,
@@ -26,6 +28,7 @@ mutable struct EulerStepper{N,EOS,K,MD,M,ED,E,D} <: Stepper{N}
         ED,
         E<:EnergyComponent{ED},
         D<:DiffusionComponent,
+        B<:BoundaryComponent{N},
     }
         pressures = Pressures(mass_component, energy_component, eos)
         time_derivatives =
@@ -39,14 +42,16 @@ mutable struct EulerStepper{N,EOS,K,MD,M,ED,E,D} <: Stepper{N}
             velocities,
             positions,
             eos,
+            boundary_component,
         )
-        new{N,EOS,K,MD,M,ED,E,D}(
+        new{N,EOS,K,MD,M,ED,E,D,B}(
             eos,
             positions,
             velocities,
             mass_component,
             energy_component,
             diffusion_component,
+            boundary_component,
             pressures,
             time_derivatives,
         )
@@ -55,13 +60,13 @@ end
 
 Base.show(
     io::IO,
-    ::Type{EulerStepper{N,EOS,K,MD,M,ED,E,D}},
-) where {N,EOS,K,MD,M,ED,E,D} = print(io, "EulerStepper")
+    ::Type{EulerStepper{N,EOS,K,MD,M,ED,E,D,B}},
+) where {N,EOS,K,MD,M,ED,E,D,B} = print(io, "EulerStepper")
 
 function Base.show(
     io::IO,
-    ::EulerStepper{N,EOS,K,MD,M,ED,E,D},
-) where {N,EOS,K,MD,M,ED,E,D}
+    ::EulerStepper{N,EOS,K,MD,M,ED,E,D,B},
+) where {N,EOS,K,MD,M,ED,E,D,B}
     print(
         io,
         """
@@ -72,6 +77,7 @@ function Base.show(
             $(M)
             $(E)
             $(D)
+            $(B)
         }""",
     )
 end
@@ -95,6 +101,7 @@ function step!(stepper::EulerStepper, Δt::Number)
         Δt,
     )
     evolvepositions!(stepper.positions, stepper.velocities, Δt)
+    evolveboundaries!(stepper.boundary_component, Δt)
     updatefluid!(
         stepper.time_derivatives,
         stepper.mass_component,
@@ -104,5 +111,6 @@ function step!(stepper::EulerStepper, Δt::Number)
         stepper.velocities,
         stepper.positions,
         stepper.eos,
+        stepper.boundary_component,
     )
 end

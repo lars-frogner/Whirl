@@ -27,10 +27,19 @@ get_pressures(pressures::Pressures) = pressures.pressures
     get_pressures(pressures::Pressures, (i, j)::Tuple{Unsigned,Unsigned})
         -> (Float, Float)
 
-Return the velocities of the particles with the given indices.
+Return the pressures of the particles with the given indices.
 """
 function get_pressures(pressures::Pressures, (i, j)::Tuple{Unsigned,Unsigned})
     pressures.pressures[i], pressures.pressures[j]
+end
+
+"""
+    get_pressure(pressures::Pressures, i::Unsigned) -> (Float, Float)
+
+Return the pressure of the particle with the given index.
+"""
+function get_pressure(pressures::Pressures, i::Unsigned)
+    pressures.pressures[i]
 end
 
 """
@@ -58,21 +67,18 @@ updatepressures!(
 
 """
     compute_Δa_pressure(
-        i_j::Tuple{Unsigned,Unsigned},
         (ρᵢ, ρⱼ)::Tuple{Number,Number},
+        (Pᵢ, Pⱼ)::Tuple{Number,Number},
         m_ddr_W_r_hᵢ_hⱼ::Union{Number,Tuple{Number,Number}},
-        pressures::Pressures,
     ) -> (Float, Float)
 
 Compute pairwise particle accelerations due to pressure.
 """
 function compute_Δa_pressure(
-    i_j::Tuple{Unsigned,Unsigned},
     (ρᵢ, ρⱼ)::Tuple{Number,Number},
+    (Pᵢ, Pⱼ)::Tuple{Number,Number},
     m_ddr_W_r_hᵢ_hⱼ::Union{Number,Tuple{Number,Number}},
-    pressures::Pressures,
 )
-    Pᵢ, Pⱼ = get_pressures(pressures, i_j)
     compute_Δa_pressure(m_ddr_W_r_hᵢ_hⱼ, (Pᵢ / ρᵢ^2, Pⱼ / ρⱼ^2))
 end
 

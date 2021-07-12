@@ -47,6 +47,14 @@ get_kernel_widths(standard_mass::StandardMass) =
     fill(get_kernel_width(standard_mass), length(standard_mass.mass_densities))
 
 """
+    get_kernel_width(standard_mass::StandardMass) -> Float
+
+Return the constant kernel width of the standard mass component.
+"""
+get_kernel_width(standard_mass::StandardMass) =
+    get_kernel_width(standard_mass.W)
+
+"""
     get_kernel_widths(standard_mass::StandardMass, ::Tuple{Unsigned,Unsigned})
         -> Float
 
@@ -56,12 +64,12 @@ get_kernel_widths(standard_mass::StandardMass, ::Tuple{Unsigned,Unsigned}) =
     get_kernel_width(standard_mass)
 
 """
-    get_kernel_width(standard_mass::StandardMass) -> Float
+    get_kernel_width(standard_mass::StandardMass, ::Unsigned) -> Float
 
 Return the constant kernel width of the standard mass component.
 """
-get_kernel_width(standard_mass::StandardMass) =
-    get_kernel_width(standard_mass.W)
+get_kernel_width(standard_mass::StandardMass, ::Unsigned) =
+    get_kernel_width(standard_mass)
 
 """
     normalize_distance(
@@ -81,18 +89,6 @@ initderivatives(standard_mass::StandardMass) =
 initderivatives!(dρdt::AbstractVector{Float}, ::StandardMass) = fill!(dρdt, 0.0)
 
 function updatederivatives!(
-    dρdt::AbstractVector{Float},
-    (i, j)::Tuple{Unsigned,Unsigned},
-    vᵣ::Number,
-    m_ddr_W_r_h::Number,
-    ::StandardMass,
-)
-    Δdρdt = m_ddr_W_r_h * vᵣ
-    dρdt[i] += Δdρdt
-    dρdt[j] += Δdρdt
-end
-
-function updatederivatives!(
     ::AbstractVector{Float},
     ::Tuple{Unsigned,Unsigned},
     ::Number,
@@ -101,6 +97,30 @@ function updatederivatives!(
 )
     throw(InvalidStateException)
 end
+
+function updatederivatives!(
+    dρdt::AbstractVector{Float},
+    (i, j)::Tuple{Unsigned,Unsigned},
+    vᵣ::Number,
+    m_ddr_W_r_h::Number,
+    ::StandardMass,
+)
+    Δdρdt = compute_Δdρdt(m_ddr_W_r_h, vᵣ)
+    dρdt[i] += Δdρdt
+    dρdt[j] += Δdρdt
+end
+
+function updatederivative!(
+    dρdt::AbstractVector{Float},
+    i::Unsigned,
+    vᵣ::Number,
+    m_ddr_W_r_h::Number,
+    ::StandardMass,
+)
+    dρdt[i] += compute_Δdρdt(m_ddr_W_r_h, vᵣ)
+end
+
+compute_Δdρdt(m_ddr_W_r_h::Number, vᵣ::Number) = m_ddr_W_r_h * vᵣ
 
 evolvevariables!(
     standard_mass::StandardMass,

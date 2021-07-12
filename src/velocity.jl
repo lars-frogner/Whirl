@@ -33,6 +33,15 @@ function get_velocities(
 end
 
 """
+    get_velocity(velocities::Velocities{N}, i::Unsigned) -> SVectorF{N}
+
+Return the velocity of the particle with the given index.
+"""
+function get_velocity(velocities::Velocities, i::Unsigned)
+    velocities.velocities[i]
+end
+
+"""
     initderivatives(velocities::Velocities{N})
         -> Vector{SVectorF{N}}
 
@@ -71,13 +80,39 @@ function updatederivatives!(
     accelerations::AbstractVector{SVectorF{N}},
     (i, j)::Tuple{Unsigned,Unsigned},
     r̂ᵢⱼ::SVectorF{N},
-    (Δaᵢ_pressure, Δaⱼ_pressure, Δa_diffusion)::Tuple{Number,Number,Number},
+    Δa::Tuple{Number,Number,Number},
     ::Velocities{N},
 ) where {N}
-    Δaᵢⱼ = (Δaᵢ_pressure + Δaⱼ_pressure + Δa_diffusion) * r̂ᵢⱼ
+    Δaᵢⱼ = compute_Δaᵢⱼ(Δa, r̂ᵢⱼ)
     accelerations[i] += Δaᵢⱼ
     accelerations[j] -= Δaᵢⱼ
 end
+
+"""
+    updatederivative!(
+        accelerations::AbstractVector{SVectorF{N}},
+        i::Unsigned,
+        r̂ᵢⱼ::SVectorF{N},
+        (Δaᵢ_pressure, Δaⱼ_pressure, Δa_diffusion)::Tuple{Number,Number,Number},
+        ::Velocities{N},
+    )
+
+Updates the acceleration of particle `i`.
+"""
+function updatederivative!(
+    accelerations::AbstractVector{SVectorF{N}},
+    i::Unsigned,
+    r̂ᵢⱼ::SVectorF{N},
+    Δa::Tuple{Number,Number,Number},
+    ::Velocities{N},
+) where {N}
+    accelerations[i] += compute_Δaᵢⱼ(Δa, r̂ᵢⱼ)
+end
+
+compute_Δaᵢⱼ(
+    (Δaᵢ_pressure, Δaⱼ_pressure, Δa_diffusion)::Tuple{Number,Number,Number},
+    r̂ᵢⱼ::SVectorF{N},
+) where {N} = (Δaᵢ_pressure + Δaⱼ_pressure + Δa_diffusion) * r̂ᵢⱼ
 
 """
     evolvevariables!(

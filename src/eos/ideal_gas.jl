@@ -73,9 +73,8 @@ gas_pressure_from(eos::AdiabaticIdealGasEOS, ρ::Number, u::Number) =
 temperature_from(eos::AdiabaticIdealGasEOS, u::Number) =
     @dbgassert(u ≥ 0) && u / eos.e_from_ρT
 
-mass_density_from(eos::AdiabaticIdealGasEOS, P::Number, T::Number) =
-    @dbgassert(P ≥ 0) &&
-    @dbgassert(T > 0) && P / (eos.e_from_ρT * eos.P_from_e * T)
+mass_density_from(eos::AdiabaticIdealGasEOS, P::Number, u::Number) =
+    @dbgassert(P ≥ 0) && @dbgassert(u > 0) && P / (eos.P_from_e * u)
 
 specific_energy_from(eos::AdiabaticIdealGasEOS, T::Number) =
     @dbgassert(T ≥ 0) && eos.e_from_ρT * T

@@ -45,6 +45,16 @@ function get_mass_densities(
 end
 
 """
+    get_mass_density(mass_component::MassComponent, i::Unsigned) -> Float
+
+Return the mass density of the particle with the given index.
+"""
+function get_mass_density(mass_component::MassComponent, i::Unsigned)
+    mass_densities = get_mass_densities(mass_component)
+    mass_densities[i]
+end
+
+"""
     get_kernel_widths(
         mass_component::MassComponent,
         (i, j)::Tuple{Unsigned,Unsigned},
@@ -58,6 +68,16 @@ function get_kernel_widths(
 )
     kernel_widths = get_kernel_widths(mass_component)
     kernel_widths[i], kernel_widths[j]
+end
+
+"""
+    get_kernel_width(mass_component::MassComponent, i::Unsigned) -> Float
+
+Return the kernel width of the particles with the given index.
+"""
+function get_kernel_width(mass_component::MassComponent, i::Unsigned)
+    kernel_widths = get_kernel_widths(mass_component)
+    kernel_widths[i]
 end
 
 """
@@ -93,6 +113,25 @@ function updatederivatives!(
     ::Tuple{Unsigned,Unsigned},
     ::Number,
     ::Union{Number,Tuple{Number,Number}},
+    ::MassComponent{Nothing},
+) end
+
+"""
+    updatederivative!(
+        mass_derivatives::MD,
+        i::Unsigned,
+        vᵣ::Number,
+        m_ddr_W_r_hᵢ_hⱼ::Union{Number,Tuple{Number,Number}},
+        mass_component::MassComponent{MD},
+    )
+
+Update mass component derivative for particle `i`.
+"""
+function updatederivative!(
+    ::Nothing,
+    ::Unsigned,
+    ::Number,
+    ::Union{Number,Tuple{Number,Number}},
     ::Number,
     ::MassComponent{Nothing},
 ) end
@@ -110,18 +149,22 @@ function evolvevariables!(::MassComponent{Nothing}, ::Nothing, ::Number) end
 
 """
     normalize_distance(
-        mass_component::MassComponent,
+        ::MassComponent,
         r::Number,
         (hᵢ, hⱼ)::Tuple{Number,Number},
     ) -> (Float, Float)
 
 Normalize the distance by the two kernel widths.
 """
-normalize_distance(
-    mass_component::MassComponent,
-    r::Number,
-    (hᵢ, hⱼ)::Tuple{Number,Number},
-) = r / hᵢ, r / hⱼ
+normalize_distance(::MassComponent, r::Number, (hᵢ, hⱼ)::Tuple{Number,Number}) =
+    r / hᵢ, r / hⱼ
+
+"""
+    normalize_distance(::MassComponent, r::Number, h::Number) -> Float
+
+Normalize the distance by the kernel width.
+"""
+normalize_distance(::MassComponent, r::Number, h::Number) = r / h
 
 """
     estimate_initial_kernel_width(
@@ -154,7 +197,7 @@ positions.
 function updatemasses!(::MassComponent, ::AbstractVector{SVectorF{N}}) where {N} end
 
 function compute_m_ddr_W_r_h(
-    ::Tuple{Unsigned,Unsigned},
+    ::Union{Unsigned,Tuple{Unsigned,Unsigned}},
     ddr_W_r_h::Number,
     mass_component::MassComponent,
 )

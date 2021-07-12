@@ -8,6 +8,32 @@ Return the specific energies of the particles in the energy component.
 function get_specific_energies end
 
 """
+    get_specific_energies(
+        energy_component::EnergyComponent,
+        (i, j)::Tuple{Unsigned,Unsigned},
+    ) -> (Float, Float)
+
+Return the specific energies of the particles with the given indices.
+"""
+function get_specific_energies(
+    energy_component::EnergyComponent,
+    (i, j)::Tuple{Unsigned,Unsigned},
+)
+    specific_energies = get_specific_energies(energy_component)
+    specific_energies[i], specific_energies[j]
+end
+
+"""
+    get_specific_energy(energy_component::EnergyComponent, i::Unsigned) -> Float
+
+Return the specific energy of the particle with the given index.
+"""
+function get_specific_energy(energy_component::EnergyComponent, i::Unsigned)
+    specific_energies = get_specific_energies(energy_component)
+    specific_energies[i]
+end
+
+"""
     initderivatives(energy_component::EnergyComponent{ED}) -> ED
 
 Creates initial derivatives for the energy component.
@@ -38,6 +64,25 @@ Update energy component derivatives for particles `i` and `j`.
 function updatederivatives!(
     ::Nothing,
     ::Tuple{Unsigned,Unsigned},
+    ::Number,
+    ::Tuple{Number,Number,Number},
+    ::EnergyComponent{Nothing},
+) end
+
+"""
+    updatederivative!(
+        energy_derivatives::ED,
+        i::Unsigned,
+        vᵣ::Number,
+        (Δaᵢ_pressure, Δaⱼ_pressure, Δa_diffusion)::Tuple{Number,Number,Number},
+        energy_component::EnergyComponent{ED},
+    )
+
+Update energy component derivative for particle `i`.
+"""
+function updatederivative!(
+    ::Nothing,
+    ::Unsigned,
     ::Number,
     ::Tuple{Number,Number,Number},
     ::EnergyComponent{Nothing},

@@ -64,7 +64,7 @@ updatemasses!(
 ) where {N} = update_particle_volumes!(adaptive_mass, positions)
 
 function compute_m_ddr_W_r_h(
-    ::Tuple{Unsigned,Unsigned},
+    ::Union{Unsigned,Tuple{Unsigned,Unsigned}},
     ::Number,
     adaptive_mass::AdaptiveMass,
 )

@@ -47,6 +47,7 @@ end
         velocities::Velocities{N},
         positions::Vector{SVectorF{N}},
         eos::EquationOfState,
+        boundary_component::BoundaryComponent,
     )
 
 Update the state of the fluid variables and derivatives according to the
@@ -61,10 +62,18 @@ function updatefluid!(
     velocities::Velocities{N},
     positions::Vector{SVectorF{N}},
     eos::EquationOfState,
+    boundary_component::BoundaryComponent{N},
 ) where {N,MD,ED}
     updatemasses!(mass_component, positions)
     updatepressures!(pressures, mass_component, energy_component, eos)
     updatediffusion!(diffusion_component, energy_component, eos)
+    updateboundaries!(
+        boundary_component,
+        positions,
+        velocities,
+        mass_component,
+        pressures,
+    )
 
     initderivatives!(
         time_derivatives,
@@ -96,12 +105,38 @@ function updatefluid!(
             )
         end
     end
+
+    boundary_positions = get_positions(boundary_component)
+    nb::UInt = length(boundary_positions)
+    for i = 1:n, j = 1:nb
+        rᵢⱼ = boundary_positions[j] - positions[i]
+        r = norm(rᵢⱼ)
+        hᵢ = get_kernel_width(mass_component, i)
+        qᵢ = normalize_distance(mass_component, r, hᵢ)
+
+        if r > 0 && nonzeroat(get_kernel(mass_component), qᵢ)
+            r̂ᵢⱼ = rᵢⱼ / r
+            updatederivatives_boundary!(
+                time_derivatives,
+                (i, j),
+                (rᵢⱼ, r̂ᵢⱼ, r),
+                hᵢ,
+                qᵢ,
+                velocities,
+                pressures,
+                mass_component,
+                energy_component,
+                diffusion_component,
+                boundary_component,
+            )
+        end
+    end
 end
 
 """
     updatederivatives!(
         time_derivatives::TimeDerivatives{N,MD,ED},
-        (i, j)::Tuple{Unsigned,Unsigned},
+        i_j::Tuple{Unsigned,Unsigned},
         (rᵢⱼ, r̂ᵢⱼ, r)::Tuple{SVectorF{N},SVectorF{N},Number},
         hᵢ_hⱼ::Union{Number,Tuple{Number,Number}},
         qᵢ_qⱼ::Union{Number,Tuple{Number,Number}},
@@ -131,13 +166,14 @@ function updatederivatives!(
     vᵣ = vᵢⱼ ⋅ r̂ᵢⱼ
 
     ρᵢ_ρⱼ = get_mass_densities(mass_component, i_j)
+    Pᵢ_Pⱼ = get_pressures(pressures, i_j)
 
     ddr_W_r_hᵢ_hⱼ = ddr(get_kernel(mass_component), qᵢ_qⱼ, hᵢ_hⱼ)
 
     m_ddr_W_r_hᵢ_hⱼ = compute_m_ddr_W_r_h(i_j, ddr_W_r_hᵢ_hⱼ, mass_component)
 
     Δaᵢ_pressure, Δaⱼ_pressure =
-        compute_Δa_pressure(i_j, ρᵢ_ρⱼ, m_ddr_W_r_hᵢ_hⱼ, pressures)
+        compute_Δa_pressure(ρᵢ_ρⱼ, Pᵢ_Pⱼ, m_ddr_W_r_hᵢ_hⱼ)
 
     Δa_diffusion = compute_Δa_diffusion(
         r,
@@ -166,6 +202,87 @@ function updatederivatives!(
     updatederivatives!(
         time_derivatives.accelerations,
         i_j,
+        r̂ᵢⱼ,
+        (Δaᵢ_pressure, Δaⱼ_pressure, Δa_diffusion),
+        velocities,
+    )
+end
+
+"""
+    updatederivatives_boundary!(
+        time_derivatives::TimeDerivatives{N,MD,ED},
+        (i, j)::Tuple{Unsigned,Unsigned},
+        (rᵢⱼ, r̂ᵢⱼ, r)::Tuple{SVectorF{N},SVectorF{N},Number},
+        hᵢ::Number,
+        qᵢ::Number,
+        velocities::Velocities{N},
+        pressures::Pressures,
+        mass_component::MassComponent{MD,<:Kernel{N}},
+        energy_component::EnergyComponent{ED},
+        diffusion_component::DiffusionComponent,
+        boundary_component::BoundaryComponent{N},
+    )
+
+Update time derivatives for particle `i` due to boundary particle `j`.
+"""
+function updatederivatives_boundary!(
+    time_derivatives::TimeDerivatives{N,MD,ED},
+    (i, j)::Tuple{Unsigned,Unsigned},
+    (rᵢⱼ, r̂ᵢⱼ, r)::Tuple{SVectorF{N},SVectorF{N},Number},
+    hᵢ::Number,
+    qᵢ::Number,
+    velocities::Velocities{N},
+    pressures::Pressures,
+    mass_component::MassComponent{MD,<:Kernel{N}},
+    energy_component::EnergyComponent{ED},
+    diffusion_component::DiffusionComponent,
+    boundary_component::BoundaryComponent{N},
+) where {N,MD,ED}
+    vᵢ = get_velocity(velocities, i)
+    vⱼ = get_velocity(boundary_component, j)
+    vᵢⱼ = vⱼ - vᵢ
+    vᵣ = vᵢⱼ ⋅ r̂ᵢⱼ
+
+    ρᵢ = get_mass_density(mass_component, i)
+    ρⱼ = compute_mass_density(boundary_component, energy_component, eos, i, j)
+
+    Pᵢ = get_pressure(pressures, i)
+    Pⱼ = get_pressure(boundary_component, j)
+
+    ddr_W_r_hᵢ = ddr(get_kernel(mass_component), qᵢ, hᵢ)
+
+    m_ddr_W_r_hᵢ = compute_m_ddr_W_r_h(i, ddr_W_r_hᵢ, mass_component)
+
+    Δaᵢ_pressure, Δaⱼ_pressure =
+        compute_Δa_pressure((ρᵢ, ρⱼ), (Pᵢ, Pⱼ), m_ddr_W_r_hᵢ)
+
+    Δa_diffusion = compute_Δa_diffusion(
+        r,
+        vᵣ,
+        hᵢ,
+        (ρᵢ, ρⱼ),
+        ddr_W_r_hᵢ,
+        mass_component,
+        diffusion_component,
+    )
+
+    updatederivative!(
+        time_derivatives.mass_derivatives,
+        i,
+        vᵣ,
+        ddr_W_r_hᵢ,
+        mass_component,
+    )
+    updatederivative!(
+        time_derivatives.energy_derivatives,
+        i,
+        vᵣ,
+        (Δaᵢ_pressure, Δaⱼ_pressure, Δa_diffusion),
+        energy_component,
+    )
+    updatederivative!(
+        time_derivatives.accelerations,
+        i,
         r̂ᵢⱼ,
         (Δaᵢ_pressure, Δaⱼ_pressure, Δa_diffusion),
         velocities,

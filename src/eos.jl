@@ -27,9 +27,9 @@ Compute the temperature for the given internal specific energy `u`."
 function temperature_from end
 
 """
-    mass_density_from(eos::EquationOfState, P::Number, T::Number) -> Float
+    mass_density_from(eos::EquationOfState, P::Number, u::Number) -> Float
 
-Compute the mass density for the given gas pressure `P` and temperature `T`."
+Compute the mass density for the given gas pressure `P` and specific energy `u`."
 """
 function mass_density_from end
 

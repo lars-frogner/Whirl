@@ -10,6 +10,7 @@ mutable struct SimulationBuilder{N}
     mass_component_type::Tuple{Type,Any}
     energy_component_type::Tuple{Type,Any}
     diffusion_component_type::Tuple{Type,Any}
+    boundary_component_type::Tuple{Type,Any}
     stepper_type::Tuple{Type,Any}
 
     function SimulationBuilder(
@@ -32,6 +33,7 @@ mutable struct SimulationBuilder{N}
             (AdaptiveMass, []),
             (StandardEnergy, []),
             (StandardDiffusion, []),
+            (NoBoundaries{N}, []),
             (EulerStepper, []),
         )
     end
@@ -51,12 +53,17 @@ function Base.show(io::IO, builder::SimulationBuilder{N}) where {N}
             $(builder.mass_component_type[1])
             $(builder.energy_component_type[1])
             $(builder.diffusion_component_type[1])
+            $(builder.boundary_component_type[1])
             $(builder.stepper_type[1])
         }""",
     )
 end
 
 (Base.:+)(builder::SimulationBuilder, property) = set!(builder, property)
+(Base.:+)(
+    builder::SimulationBuilder,
+    (property, kwargs)::Tuple{<:Any,NamedTuple},
+) = set!(builder, property, kwargs...)
 
 function set!(builder::SimulationBuilder{N}, unit_system::UnitSystem) where {N}
     builder.unit_system = unit_system
@@ -126,6 +133,15 @@ end
 
 function set!(
     builder::SimulationBuilder{N},
+    boundary_component_type::Type{<:BoundaryComponent{N}};
+    kwargs...,
+) where {N}
+    builder.boundary_component_type = (boundary_component_type, kwargs)
+    builder
+end
+
+function set!(
+    builder::SimulationBuilder{N},
     stepper_type::Type{<:Stepper{N}};
     kwargs...,
 ) where {N}
@@ -151,12 +167,15 @@ function build(builder::SimulationBuilder{N}) where {N}
         builder.diffusion_component_type[1](builder.diffusion_component_type[2]...)
     velocities =
         Velocities(positions, mass_densities, builder.velocity_distribution)
+    boundary_component =
+        builder.boundary_component_type[1](builder.boundary_component_type[2]...)
     stepper = builder.stepper_type[1](
         positions,
         velocities,
         mass_component,
         energy_component,
         diffusion_component,
+        boundary_component,
         builder.eos;
         builder.stepper_type[2]...,
     )

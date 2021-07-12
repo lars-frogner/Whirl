@@ -38,11 +38,24 @@ function updatederivatives!(
     (Δaᵢ_pressure, Δaⱼ_pressure, Δa_diffusion)::Tuple{Number,Number,Number},
     ::StandardEnergy,
 )
-    Δdudtᵢ = (Δaᵢ_pressure + Δa_diffusion) * vᵣ
-    Δdudtⱼ = (Δaⱼ_pressure + Δa_diffusion) * vᵣ
+    Δdudtᵢ = compute_Δdudt(Δaᵢ_pressure, Δa_diffusion, vᵣ)
+    Δdudtⱼ = compute_Δdudt(Δaⱼ_pressure, Δa_diffusion, vᵣ)
     dudt[i] += Δdudtᵢ
     dudt[j] += Δdudtⱼ
 end
+
+function updatederivative!(
+    dudt::AbstractVector{Float},
+    i::Unsigned,
+    vᵣ::Number,
+    (Δaᵢ_pressure, Δaⱼ_pressure, Δa_diffusion)::Tuple{Number,Number,Number},
+    ::StandardEnergy,
+)
+    dudt[i] += compute_Δdudt(Δaᵢ_pressure, Δa_diffusion, vᵣ)
+end
+
+compute_Δdudt(Δa_pressure::Number, Δa_diffusion::Number, vᵣ::Number) =
+    (Δa_pressure + Δa_diffusion) * vᵣ
 
 evolvevariables!(
     standard_energy::StandardEnergy,
